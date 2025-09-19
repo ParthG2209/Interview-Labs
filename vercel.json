@@ -1,27 +1,10 @@
 {
   "version": 2,
-  "name": "interviewlabs",
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
-    "server.js": {
+    "api/debug.js": {
+      "maxDuration": 10
+    },
+    "api/questions.js": {
       "maxDuration": 30
     }
   },
@@ -35,24 +18,13 @@
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET, POST, OPTIONS"
         },
         {
           "key": "Access-Control-Allow-Headers",
           "value": "Content-Type, Authorization"
         }
       ]
-    }
-  ],
-  "regions": ["iad1"],
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/server.js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
     }
   ]
 }
