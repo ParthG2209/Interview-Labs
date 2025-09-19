@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -21,56 +20,58 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'field is required' });
         }
 
-        console.log(`Generating ${questionCount} questions for field: ${fieldTrimmed}`);
+        console.log(`Attempting to generate ${questionCount} questions for: ${fieldTrimmed}`);
 
-        // Check if Cohere API key is available
         const cohereApiKey = process.env.COHERE_API_KEY;
         
         if (cohereApiKey) {
-            console.log('Using Cohere AI to generate questions');
+            console.log('🤖 Attempting Cohere AI generation...');
             
             try {
-                // Call Cohere API
-                const cohereResponse = await fetch('https://api.cohere.ai/v1/generate', {
+                // Updated Cohere API call with correct endpoint and model
+                const cohereResponse = await fetch('https://api.cohere.com/v1/chat', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${cohereApiKey}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'command-xlarge-nightly',
-                        prompt: `Generate ${questionCount} realistic interview questions for a ${fieldTrimmed} position. 
-
-Format each question on a new line with no numbering or bullets. Make the questions:
-- Behavioral and technical mix
-- Relevant to ${fieldTrimmed} role
-- Professional interview style
-- Clear and specific
-
-Questions:`,
-                        max_tokens: 500,
+                        message: `Generate exactly ${questionCount} realistic interview questions for a ${fieldTrimmed} position. Make them professional, specific, and relevant. Format as a numbered list.`,
+                        model: 'command-r-plus',
                         temperature: 0.7,
-                        k: 0,
-                        stop_sequences: [],
-                        return_likelihoods: 'NONE'
+                        max_tokens: 600,
+                        stream: false
                     })
                 });
 
+                console.log('Cohere response status:', cohereResponse.status);
+
                 if (cohereResponse.ok) {
                     const cohereData = await cohereResponse.json();
-                    const generatedText = cohereData.generations[0]?.text?.trim();
+                    console.log('Cohere response received:', !!cohereData.text);
+                    
+                    const generatedText = cohereData.text?.trim();
                     
                     if (generatedText) {
-                        // Parse questions from response
+                        // Parse questions from the response
                         const questions = generatedText
                             .split('\n')
-                            .map(q => q.trim())
-                            .filter(q => q.length > 10 && !q.match(/^[0-9]/)) // Remove numbers and short lines
+                            .map(line => line.trim())
+                            .filter(line => {
+                                // Remove empty lines and numbering
+                                return line.length > 15 && 
+                                       (line.includes('?') || line.includes('how') || line.includes('what') || line.includes('describe'));
+                            })
+                            .map(line => {
+                                // Clean up numbering and formatting
+                                return line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim();
+                            })
                             .slice(0, questionCount);
-                        
-                        console.log(`Generated ${questions.length} questions via Cohere AI`);
-                        
-                        if (questions.length >= Math.min(questionCount, 3)) {
+
+                        console.log(`✅ Generated ${questions.length} questions via Cohere AI`);
+
+                        if (questions.length >= Math.min(questionCount, 2)) {
                             return res.status(200).json({
                                 questions: questions.slice(0, questionCount),
                                 ai: true,
@@ -79,90 +80,89 @@ Questions:`,
                                 generated: questions.length,
                                 field: fieldTrimmed
                             });
+                        } else {
+                            console.log('❌ Insufficient questions from Cohere, using fallback');
                         }
+                    } else {
+                        console.log('❌ No text in Cohere response');
                     }
+                } else {
+                    const errorText = await cohereResponse.text();
+                    console.error('❌ Cohere API failed:', cohereResponse.status, errorText);
                 }
                 
-                console.log('Cohere API failed, falling back to templates');
-                
             } catch (cohereError) {
-                console.error('Cohere API error:', cohereError);
+                console.error('❌ Cohere API error:', cohereError.message);
             }
         } else {
-            console.log('No Cohere API key found, using templates');
+            console.log('❌ No Cohere API key found');
         }
 
-        // Fallback to template questions
+        // Enhanced fallback templates (this is what's currently running)
+        console.log('🔄 Using enhanced template fallback');
+        
         const questionTemplates = {
             'software': [
-                `Tell me about your experience with system design and architecture.`,
-                `How do you approach debugging a complex production issue in ${fieldTrimmed}?`,
-                `Describe a challenging technical problem you solved recently.`,
-                `How would you optimize a slow-performing application or database?`,
-                `Explain your process for code reviews and maintaining code quality.`,
-                `How do you stay current with new technologies in ${fieldTrimmed}?`,
-                `Describe a time you had to learn a new framework or technology quickly.`,
-                `How would you design a system to handle millions of users?`,
-                `Tell me about a time you disagreed with a technical decision.`,
-                `How do you handle technical debt in legacy systems?`
+                `Describe a complex system design challenge you've solved and your approach.`,
+                `How do you approach debugging production issues in distributed systems?`,
+                `Tell me about a time you had to optimize application performance. What was your process?`,
+                `Explain how you would design a RESTful API for a high-traffic application.`,
+                `Describe your experience with microservices architecture and its trade-offs.`,
+                `How do you ensure code quality and maintainability in a team environment?`,
+                `Tell me about a technical decision you made that you later regretted and what you learned.`,
+                `How would you handle a situation where stakeholders want features that conflict with best practices?`,
+                `Describe your process for staying current with new technologies and deciding which to adopt.`,
+                `Walk me through how you would troubleshoot a slow database query in production.`
             ],
             'java': [
-                `Explain the difference between Java's heap and stack memory.`,
-                `How do you handle memory management and garbage collection in Java?`,
-                `Describe your experience with Spring framework and dependency injection.`,
-                `How would you optimize Java application performance?`,
-                `Tell me about a complex multithreading problem you solved in Java.`,
-                `How do you handle exception handling and error management?`,
-                `Describe your approach to unit testing in Java applications.`,
-                `How would you design a RESTful API using Spring Boot?`,
-                `Tell me about your experience with Java design patterns.`,
-                `How do you manage dependencies and build processes in Java projects?`
+                `Explain the differences between ArrayList and LinkedList and when you'd use each.`,
+                `How does garbage collection work in Java and how would you tune it for performance?`,
+                `Describe the Spring Boot auto-configuration mechanism and how to customize it.`,
+                `How would you handle concurrent access to shared resources in a Java application?`,
+                `Explain the concept of dependency injection and its benefits in Java applications.`,
+                `Describe how you would implement a RESTful web service using Spring Boot.`,
+                `How do you handle exceptions in Java and what are the best practices?`,
+                `Explain the difference between checked and unchecked exceptions with examples.`,
+                `How would you optimize memory usage in a Java application dealing with large datasets?`,
+                `Describe your approach to unit testing in Java and your preferred testing frameworks.`
             ],
             'intern': [
-                `Why are you interested in this ${fieldTrimmed} internship opportunity?`,
-                `Tell me about a challenging project you worked on during your studies.`,
-                `How do you prioritize tasks when working on multiple assignments?`,
-                `Describe a time you had to learn a new technology or skill quickly.`,
-                `How would you handle receiving constructive criticism on your work?`,
-                `Tell me about a team project where you had to collaborate effectively.`,
-                `What programming languages or tools are you most comfortable with?`,
-                `Describe a problem you solved using creative thinking.`,
-                `How do you stay motivated when facing difficult challenges?`,
-                `Tell me about a time you made a mistake and how you handled it.`
+                `What attracts you most to this internship opportunity and our company?`,
+                `Describe a challenging academic project and how you approached solving it.`,
+                `How do you prioritize multiple assignments or projects with competing deadlines?`,
+                `Tell me about a time you had to learn a new programming language or technology quickly.`,
+                `How would you handle feedback or criticism about your work from a supervisor?`,
+                `Describe a group project where you had to work with team members who had different working styles.`,
+                `What programming languages and development tools are you most comfortable with?`,
+                `Tell me about a problem you solved using a creative or unconventional approach.`,
+                `How do you stay motivated when working on tasks that are challenging or unfamiliar?`,
+                `Describe a mistake you made in a project and how you handled it.`
             ]
         };
 
-        // Field matching logic
+        // Improved field matching
         const fieldLower = fieldTrimmed.toLowerCase();
         let selectedTemplates = [];
         
-        const fieldMappings = {
-            'intern': ['intern', 'internship', 'trainee', 'entry level', 'entry-level', 'student', 'graduate'],
-            'java': ['java', 'jvm', 'spring', 'hibernate', 'maven', 'gradle'],
-            'software': ['software', 'developer', 'programmer', 'engineer', 'coding', 'programming', 'backend', 'frontend', 'fullstack', 'web development']
-        };
-        
-        for (const [category, keywords] of Object.entries(fieldMappings)) {
-            if (keywords.some(keyword => fieldLower.includes(keyword))) {
-                selectedTemplates = questionTemplates[category];
-                console.log(`Matched field category: ${category}`);
-                break;
-            }
-        }
-        
-        // Generic fallback if no match
-        if (selectedTemplates.length === 0) {
+        if (fieldLower.includes('intern') || fieldLower.includes('entry') || fieldLower.includes('student')) {
+            selectedTemplates = questionTemplates.intern;
+        } else if (fieldLower.includes('java') || fieldLower.includes('spring') || fieldLower.includes('jvm')) {
+            selectedTemplates = questionTemplates.java;
+        } else if (fieldLower.includes('software') || fieldLower.includes('developer') || fieldLower.includes('engineer') || fieldLower.includes('programming')) {
+            selectedTemplates = questionTemplates.software;
+        } else {
+            // Generic professional questions
             selectedTemplates = [
-                `Tell me about your most challenging project in ${fieldTrimmed}.`,
-                `How do you stay updated with trends and developments in ${fieldTrimmed}?`,
-                `Describe a time you had to learn something new quickly for ${fieldTrimmed}.`,
-                `How do you handle pressure and tight deadlines in ${fieldTrimmed}?`,
-                `Tell me about a mistake you made in ${fieldTrimmed} and how you handled it.`,
-                `Describe your problem-solving approach for complex ${fieldTrimmed} issues.`,
+                `Tell me about your most challenging project in ${fieldTrimmed} and how you approached it.`,
+                `How do you stay updated with the latest trends and developments in ${fieldTrimmed}?`,
+                `Describe a situation where you had to learn something new quickly for a ${fieldTrimmed} role.`,
+                `How do you handle pressure and tight deadlines in ${fieldTrimmed} work?`,
+                `Tell me about a mistake you made in ${fieldTrimmed} and what you learned from it.`,
+                `Describe your problem-solving process when facing complex ${fieldTrimmed} challenges.`,
                 `How do you collaborate effectively with others in ${fieldTrimmed} projects?`,
                 `What motivates you most about working in ${fieldTrimmed}?`,
-                `How do you prioritize tasks when managing multiple ${fieldTrimmed} projects?`,
-                `Tell me about a time you had to explain complex ${fieldTrimmed} concepts to non-experts.`
+                `How do you prioritize tasks when managing multiple ${fieldTrimmed} responsibilities?`,
+                `Describe a time you had to explain complex ${fieldTrimmed} concepts to non-technical stakeholders.`
             ];
         }
 
@@ -170,19 +170,18 @@ Questions:`,
         const shuffled = [...selectedTemplates].sort(() => 0.5 - Math.random());
         const questions = shuffled.slice(0, questionCount);
 
-        console.log(`Returning ${questions.length} template questions`);
-        
         return res.status(200).json({
             questions,
             ai: false,
-            source: 'api-function-templates',
+            source: 'enhanced-templates',
             requested: questionCount,
             generated: questions.length,
-            field: fieldTrimmed
+            field: fieldTrimmed,
+            cohereAvailable: !!cohereApiKey
         });
         
     } catch (error) {
-        console.error('Questions error:', error);
+        console.error('Questions generation error:', error);
         return res.status(500).json({
             error: 'Failed to generate questions',
             details: error.message
