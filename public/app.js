@@ -372,7 +372,7 @@ class InterviewApp {
         if (resultsSection) resultsSection.classList.add('hidden');
     }
 
-    // UPDATED generateQuestions with enhanced error handling
+    // FIXED generateQuestions method
     async generateQuestions() {
         const fieldInput = document.getElementById('interviewField');
         const countSelect = document.getElementById('questionCount');
@@ -396,8 +396,8 @@ class InterviewApp {
         }
 
         try {
-            console.log('Making request to:', window.location.origin + '/api/questions');
-            console.log('Request body:', { field, count: parseInt(count) });
+            console.log('Making API request to /api/questions');
+            console.log('Request payload:', { field, count: parseInt(count) });
             
             const response = await fetch('/api/questions', {
                 method: 'POST',
@@ -409,42 +409,25 @@ class InterviewApp {
             });
 
             console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
             
-            // Check if response is JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const textResponse = await response.text();
-                console.error('Non-JSON response received:', textResponse);
-                throw new Error(`Server returned HTML instead of JSON. Check your API endpoint. Response: ${textResponse.substring(0, 200)}...`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
-            console.log('Parsed response ', data);
-            
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-            }
+            console.log('API response:', data);
             
             if (data.questions && data.questions.length > 0) {
                 this.questions = data.questions;
                 this.renderQuestions();
-                this.showNotification(`Generated ${data.questions.length} lab questions successfully!`, 'success');
+                this.showNotification(`Generated ${data.questions.length} lab questions successfully! (${data.source})`, 'success');
             } else {
-                throw new Error('No questions returned from server');
+                throw new Error('No questions returned from API');
             }
             
         } catch (error) {
             console.error('Failed to generate questions:', error);
-            
-            // More specific error messages
-            if (error.message.includes('Failed to fetch')) {
-                this.showNotification('Network error. Check your connection and server status.', 'error');
-            } else if (error.message.includes('HTML instead of JSON')) {
-                this.showNotification('Server configuration error. Check API endpoint.', 'error');
-            } else {
-                this.showNotification(`Failed to generate questions: ${error.message}`, 'error');
-            }
+            this.showNotification(`Failed to generate questions: ${error.message}`, 'error');
         } finally {
             if (generateBtn) {
                 generateBtn.innerHTML = 'Generate Lab Questions';
@@ -630,6 +613,7 @@ class InterviewApp {
         this.analyzeVideo();
     }
 
+    // FIXED analyzeVideo method - corrected API endpoint
     async analyzeVideo() {
         if (!this.currentVideo) {
             this.showNotification('Please record or upload a video first', 'error');
@@ -651,26 +635,38 @@ class InterviewApp {
         }
 
         try {
-            const formData = new FormData();
-            formData.append('video', this.currentVideo);
-            formData.append('field', this.currentField);
-
-            const response = await fetch('/api/analyze/video', {
+            console.log('Calling /api/analyze with field:', this.currentField);
+            
+            // FIXED: Use /api/analyze instead of /api/analyze/video
+            const response = await fetch('/api/analyze', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    field: this.currentField,
+                    hasVideo: true
+                })
             });
 
+            if (!response.ok) {
+                throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
+            console.log('Analysis result:', result);
             
             if (result.analysis) {
                 this.showResults(result.analysis);
                 this.saveSession(result.analysis);
                 this.showNotification('Lab analysis completed! Check your results below.', 'success');
+            } else {
+                throw new Error('No analysis data received');
             }
 
         } catch (error) {
             console.error('Analysis failed:', error);
-            this.showNotification('Lab analysis failed. Please try again.', 'error');
+            this.showNotification(`Lab analysis failed: ${error.message}`, 'error');
         } finally {
             if (analyzeBtn) {
                 analyzeBtn.innerHTML = '<i class="fas fa-microscope"></i> Analyze Performance';
@@ -860,5 +856,9 @@ window.addEventListener('offline', () => {
     }
 });
 
-// Initialize app
-const app = new InterviewApp();
+// FIXED: Initialize app and assign to window.app
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new InterviewApp();
+    window.InterviewApp = InterviewApp; // For debugging
+    console.log('InterviewLabs app initialized successfully!');
+});
