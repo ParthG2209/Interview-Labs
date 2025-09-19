@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InterviewLabs - Experiment, Practice, Excel</title>
+    <meta name="description" content="Master your interview skills with AI-powered practice sessions and detailed performance analysis">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login/Signup Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h2 id="authTitle">Welcome to InterviewLabs</h2>
+                <p id="authSubtitle">Sign in to start experimenting with interview practice</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="signin">Sign In</button>
+                <button class="auth-tab" data-tab="signup">Sign Up</button>
+            </div>
+
+            <form id="authForm" class="auth-form">
+                <div class="form-group" id="nameGroup" style="display: none;">
+                    <input type="text" id="name" name="name" placeholder="Full Name">
+                </div>
+                
+                <div class="form-group">
+                    <input type="email" id="email" name="email" placeholder="Email Address" required>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="password" name="password" placeholder="Password" required>
+                </div>
+                
+                <button type="submit" class="auth-submit">
+                    <span id="submitText">Sign In</span>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p id="authSwitchText">Don't have an account? <span id="authSwitch">Sign up</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-container">
+                <div class="logo">
+                    <i class="fas fa-flask"></i>
+                    <span>InterviewLabs</span>
+                </div>
+                <nav class="nav">
+                    <a href="#analyzer" class="nav-link">Lab</a>
+                    <a href="#history" class="nav-link">Results</a>
+                    <a href="#about" class="nav-link">About</a>
+                    <div class="user-menu">
+                        <span id="userName">Loading...</span>
+                        <div class="user-dropdown">
+                            <button id="logoutBtn">Logout</button>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-container">
+                <h1 class="hero-title">Interview Laboratory</h1>
+                <p class="hero-subtitle">Experiment with interview scenarios, practice with AI-powered coaching, and excel in your career journey. Your personal lab for interview mastery.</p>
+                
+                <!-- Main Interface Card -->
+                <div class="interface-card">
+                    <div class="interface-tabs">
+                        <button class="tab-btn active" data-tab="generate">Generate Questions</button>
+                        <button class="tab-btn" data-tab="analyze">Analyze Response</button>
+                        <button class="tab-btn" data-tab="history">Lab Results</button>
+                    </div>
+                    
+                    <!-- Generate Questions Tab -->
+                    <div id="generateTab" class="tab-content active">
+                        <div class="form-section">
+                            <label for="interviewField" class="form-label">Interview Field</label>
+                            <input 
+                                type="text" 
+                                id="interviewField" 
+                                class="form-input" 
+                                placeholder="e.g. Software Development, Marketing, Finance..."
+                            >
+                            <div class="form-row">
+                                <select id="questionCount" class="form-select">
+                                    <option value="5">5 Questions</option>
+                                    <option value="7" selected>7 Questions</option>
+                                    <option value="10">10 Questions</option>
+                                </select>
+                                <button id="generateQuestionsBtn" class="generate-btn">Generate Lab Questions</button>
+                            </div>
+                        </div>
+                        
+                        <div id="questionsContainer" class="questions-container hidden">
+                            <h3>Generated Questions</h3>
+                            <div id="questionsList" class="questions-list"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Analyze Response Tab -->
+                    <div id="analyzeTab" class="tab-content">
+                        <div class="analyze-section">
+                            <div class="record-options">
+                                <button class="record-option-btn active" data-mode="record">
+                                    <i class="fas fa-video"></i>
+                                    Record Video
+                                </button>
+                                <button class="record-option-btn" data-mode="upload">
+                                    <i class="fas fa-upload"></i>
+                                    Upload File
+                                </button>
+                            </div>
+                            
+                            <!-- Recording Mode -->
+                            <div id="recordMode" class="record-mode active">
+                                <div class="video-preview-container">
+                                    <video id="videoPreview" class="video-preview" muted playsinline></video>
+                                    <div class="video-overlay">
+                                        <button id="startRecordBtn" class="record-btn">
+                                            <i class="fas fa-circle"></i>
+                                            Start Recording
+                                        </button>
+                                        <button id="stopRecordBtn" class="record-btn stop" disabled>
+                                            <i class="fas fa-stop"></i>
+                                            Stop Recording
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Mode -->
+                            <div id="uploadMode" class="record-mode">
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-content">
+                                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                                        <h3>Upload Video File</h3>
+                                        <p>Drag and drop a video file here, or click to browse</p>
+                                        <input type="file" id="videoFileInput" accept="video/*" hidden>
+                                        <button id="browseFileBtn" class="browse-btn">Choose File</button>
+                                    </div>
+                                </div>
+                                <div id="filePreview" class="file-preview hidden">
+                                    <video id="uploadedVideo" class="uploaded-video" controls></video>
+                                    <div class="file-info">
+                                        <span id="fileName"></span>
+                                        <span id="fileSize"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button id="analyzeVideoBtn" class="analyze-btn" disabled>
+                                <i class="fas fa-microscope"></i>
+                                Analyze Performance
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- History Tab -->
+                    <div id="historyTab" class="tab-content">
+                        <div class="history-section">
+                            <div class="history-header">
+                                <h3>Your Lab Results</h3>
+                                <div class="history-stats">
+                                    <div class="stat">
+                                        <span class="stat-value" id="totalSessions">0</span>
+                                        <span class="stat-label">Experiments</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="stat-value" id="avgScore">0</span>
+                                        <span class="stat-label">Avg Score</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="historyList" class="history-list">
+                                <div class="empty-history">
+                                    <i class="fas fa-chart-line"></i>
+                                    <p>No experiments yet. Start analyzing your interviews!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Results Section -->
+                <div id="resultsSection" class="results-section hidden">
+                    <div class="results-container">
+                        <h2 class="results-title">Lab Analysis Results</h2>
+                        <div id="resultsContent" class="results-content"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section class="how-it-works">
+            <div class="container">
+                <h2 class="section-title">How Our Lab Works</h2>
+                <p class="section-subtitle">Our AI-powered laboratory makes interview preparation simple and effective with these three easy steps.</p>
+                
+                <div class="steps-container">
+                    <div class="step">
+                        <div class="step-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3 class="step-title">1. Generate Questions</h3>
+                        <p class="step-description">Enter your field and get customized interview questions tailored to your industry and role.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <h3 class="step-title">2. Record Response</h3>
+                        <p class="step-description">Answer questions by recording directly in your browser or uploading a video file.</p>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <h3 class="step-title">3. Get Lab Analysis</h3>
+                        <p class="step-description">Receive detailed feedback with scores and personalized tips to improve your interview skills.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

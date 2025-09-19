@@ -1,0 +1,7 @@
+
+node_modules/
+uploads/
+*.env
+*.pyc
+__pycache__/
+.vscode/
