@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "interviewlabs",
   "builds": [
     {
       "src": "server.js",
@@ -9,50 +8,8 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
       "src": "/(.*)",
       "dest": "/server.js"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "server.js": {
-      "maxDuration": 30
-    }
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
-    }
-  ],
-  "regions": ["iad1"],
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/server.js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
     }
   ]
 }
