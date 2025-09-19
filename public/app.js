@@ -32,16 +32,33 @@ class InterviewApp {
         }
     }
 
+    // Enhanced checkAuth with debug info
     checkAuth() {
+        this.showUserDebugInfo();
+        
         const userData = localStorage.getItem('interviewlabs_user');
         if (userData) {
             try {
                 this.currentUser = JSON.parse(userData);
+                console.log('User found:', this.currentUser.email);
             } catch (e) {
                 console.error('Invalid user data in localStorage');
                 localStorage.removeItem('interviewlabs_user');
             }
+        } else {
+            console.log('No user found in localStorage');
         }
+    }
+
+    // Add debug function for user info
+    showUserDebugInfo() {
+        const userData = localStorage.getItem('interviewlabs_user');
+        console.log('=== USER DEBUG INFO ===');
+        console.log('Browser:', navigator.userAgent.substring(0, 100));
+        console.log('Current user ', userData);
+        console.log('Parsed user:', userData ? JSON.parse(userData) : null);
+        console.log('All localStorage keys:', Object.keys(localStorage));
+        console.log('========================');
     }
 
     setupEventListeners() {
@@ -355,6 +372,7 @@ class InterviewApp {
         if (resultsSection) resultsSection.classList.add('hidden');
     }
 
+    // UPDATED generateQuestions with enhanced error handling
     async generateQuestions() {
         const fieldInput = document.getElementById('interviewField');
         const countSelect = document.getElementById('questionCount');
@@ -373,30 +391,60 @@ class InterviewApp {
         const generateBtn = document.getElementById('generateQuestionsBtn');
         
         if (generateBtn) {
-            // Show loading
             generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
             generateBtn.disabled = true;
         }
 
         try {
+            console.log('Making request to:', window.location.origin + '/api/questions');
+            console.log('Request body:', { field, count: parseInt(count) });
+            
             const response = await fetch('/api/questions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify({ field, count: parseInt(count) })
             });
 
-            const data = await response.json();
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
             
-            if (data.questions) {
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const textResponse = await response.text();
+                console.error('Non-JSON response received:', textResponse);
+                throw new Error(`Server returned HTML instead of JSON. Check your API endpoint. Response: ${textResponse.substring(0, 200)}...`);
+            }
+            
+            const data = await response.json();
+            console.log('Parsed response ', data);
+            
+            if (!response.ok) {
+                throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            if (data.questions && data.questions.length > 0) {
                 this.questions = data.questions;
                 this.renderQuestions();
-                this.showNotification('Lab questions generated successfully!', 'success');
-                
-                // Auto-switch to analyze tab removed - let users see questions first
+                this.showNotification(`Generated ${data.questions.length} lab questions successfully!`, 'success');
+            } else {
+                throw new Error('No questions returned from server');
             }
+            
         } catch (error) {
             console.error('Failed to generate questions:', error);
-            this.showNotification('Failed to generate questions', 'error');
+            
+            // More specific error messages
+            if (error.message.includes('Failed to fetch')) {
+                this.showNotification('Network error. Check your connection and server status.', 'error');
+            } else if (error.message.includes('HTML instead of JSON')) {
+                this.showNotification('Server configuration error. Check API endpoint.', 'error');
+            } else {
+                this.showNotification(`Failed to generate questions: ${error.message}`, 'error');
+            }
         } finally {
             if (generateBtn) {
                 generateBtn.innerHTML = 'Generate Lab Questions';
@@ -790,6 +838,27 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Add error boundary
+window.addEventListener('error', (e) => {
+    console.error('Global error caught:', e.error);
+    if (window.app) {
+        window.app.showNotification('Something went wrong. Please refresh the page.', 'error');
+    }
+});
+
+// Add offline detection
+window.addEventListener('online', () => {
+    if (window.app) {
+        window.app.showNotification('Connection restored!', 'success');
+    }
+});
+
+window.addEventListener('offline', () => {
+    if (window.app) {
+        window.app.showNotification('You are offline. Some features may not work.', 'error');
+    }
+});
 
 // Initialize app
 const app = new InterviewApp();
