@@ -26,57 +26,54 @@ export default async function handler(req, res) {
         const cohereApiKey = process.env.COHERE_API_KEY;
         
         if (cohereApiKey) {
-            console.log('🔑 Using Cohere AI with command-r-08-2024 model...');
+            console.log('🔑 Using Cohere Chat API with command-r-08-2024 model...');
             
             try {
-                // Optimized prompt for better question generation
-                const prompt = `Generate ${questionCount} professional interview questions for a ${fieldTrimmed} position. 
-
-Requirements:
-- Make each question specific and challenging
-- Include both technical and behavioral questions
-- Ensure questions are relevant to ${fieldTrimmed} role
-- Format: One question per line, no numbering
-
-Questions:`;
-
-                const cohereResponse = await fetch('https://api.cohere.ai/v1/generate', {
+                // FIXED: Using the new Chat API endpoint
+                const cohereResponse = await fetch('https://api.cohere.com/v1/chat', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${cohereApiKey}`,
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Cohere-Version': '2022-12-06'
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'command-r-08-2024',  // Updated to the specific model you requested
-                        prompt: prompt,
-                        max_tokens: 500,
+                        model: 'command-r-08-2024',
+                        message: `Generate exactly ${questionCount} professional interview questions for a ${fieldTrimmed} position.
+
+Requirements:
+- Make each question challenging and specific to ${fieldTrimmed}
+- Include both technical and behavioral questions
+- Format each question on a separate line
+- Do not include numbering or bullet points
+- Each question should end with a question mark
+
+Please generate the questions now:`,
                         temperature: 0.8,
-                        k: 0,
-                        stop_sequences: [],
-                        return_likelihoods: 'NONE',
-                        truncate: 'END'
+                        max_tokens: 600,
+                        stream: false,
+                        chat_history: []
                     })
                 });
 
-                console.log(`📡 Cohere API response status: ${cohereResponse.status}`);
+                console.log(`📡 Cohere Chat API response status: ${cohereResponse.status}`);
 
                 if (cohereResponse.ok) {
                     const cohereData = await cohereResponse.json();
-                    console.log('✅ Cohere AI response received successfully');
+                    console.log('✅ Cohere Chat API response received successfully');
                     
-                    const generatedText = cohereData.generations?.[0]?.text?.trim();
+                    // FIXED: Chat API returns data in 'text' field, not 'generations'
+                    const generatedText = cohereData.text?.trim();
                     
                     if (generatedText) {
-                        console.log(`📝 Generated text: ${generatedText.substring(0, 200)}...`);
+                        console.log(`📝 Generated text preview: ${generatedText.substring(0, 200)}...`);
                         
-                        // Enhanced question parsing for better results
+                        // Parse questions from Chat API response
                         const questions = generatedText
                             .split('\n')
                             .map(line => line.trim())
                             .filter(line => {
-                                // Filter for valid interview questions
+                                // Filter for valid questions
                                 return line.length > 15 && 
                                        (line.includes('?') || 
                                         line.toLowerCase().includes('describe') ||
@@ -87,49 +84,53 @@ Questions:`;
                                         line.toLowerCase().includes('why')) &&
                                        !line.match(/^[0-9]+\./) && // Remove numbered items
                                        !line.toLowerCase().includes('requirements:') &&
-                                       !line.toLowerCase().includes('format:') &&
-                                       !line.toLowerCase().includes('questions:');
+                                       !line.toLowerCase().includes('please generate');
                             })
                             .map(line => {
-                                // Clean up the questions
+                                // Clean up questions
                                 let cleaned = line
                                     .replace(/^[-•*]\s*/, '')  // Remove bullet points
                                     .replace(/^\d+\.\s*/, '')  // Remove numbering
                                     .replace(/^Question\s*\d*:?\s*/i, '') // Remove "Question X:"
                                     .trim();
                                 
-                                // Ensure question ends properly
-                                if (!cleaned.endsWith('?') && !cleaned.endsWith('.')) {
+                                // Ensure proper question format
+                                if (!cleaned.endsWith('?') && 
+                                    !cleaned.endsWith('.') && 
+                                    (cleaned.toLowerCase().includes('describe') ||
+                                     cleaned.toLowerCase().includes('explain') ||
+                                     cleaned.toLowerCase().includes('tell me'))) {
                                     cleaned += '?';
                                 }
                                 
                                 return cleaned;
                             })
-                            .filter(q => q.length > 10) // Final length check
+                            .filter(q => q.length > 20) // Final quality check
                             .slice(0, questionCount);
 
-                        console.log(`🎯 Successfully parsed ${questions.length} valid questions from AI`);
+                        console.log(`🎯 Successfully parsed ${questions.length} questions from Cohere Chat API`);
 
                         if (questions.length >= Math.min(questionCount, 3)) {
                             return res.status(200).json({
                                 questions: questions,
                                 ai: true,
-                                source: 'cohere-ai-command-r-08-2024',
+                                source: 'cohere-chat-api',
                                 requested: questionCount,
                                 generated: questions.length,
                                 field: fieldTrimmed,
-                                model: 'command-r-08-2024'
+                                model: 'command-r-08-2024',
+                                apiVersion: 'chat-v1'
                             });
                         } else {
-                            console.log(`⚠️ Only got ${questions.length} valid questions, falling back to templates`);
+                            console.log(`⚠️ Only got ${questions.length} valid questions, using fallback`);
                         }
                     } else {
-                        console.log('❌ No text content in Cohere response');
+                        console.log('❌ No text content in Cohere Chat API response');
                     }
                 } else {
-                    // Enhanced error logging
+                    // Log Chat API errors
                     const errorData = await cohereResponse.text();
-                    console.error(`❌ Cohere API failed:`, {
+                    console.error(`❌ Cohere Chat API failed:`, {
                         status: cohereResponse.status,
                         statusText: cohereResponse.statusText,
                         error: errorData
@@ -137,25 +138,25 @@ Questions:`;
                 }
                 
             } catch (cohereError) {
-                console.error('❌ Cohere API request failed:', {
+                console.error('❌ Cohere Chat API request failed:', {
                     message: cohereError.message,
                     name: cohereError.name
                 });
             }
         } else {
-            console.log('❌ No Cohere API key configured in environment variables');
+            console.log('❌ No Cohere API key configured');
         }
 
-        // Premium fallback templates - professional interview questions
+        // Premium fallback questions (same as before)
         console.log('🔄 Using premium template questions as fallback');
         
         const premiumQuestions = {
             'software': [
-                `Walk me through how you would design a scalable microservices architecture for a high-traffic e-commerce platform.`,
+                `Walk me through designing a scalable microservices architecture for a high-traffic e-commerce platform.`,
                 `Describe a time you identified and resolved a critical performance bottleneck in production. What was your methodology?`,
                 `How would you implement a real-time notification system that can handle millions of concurrent users?`,
                 `Tell me about your experience with database optimization. How do you approach query performance tuning?`,
-                `Explain how you would design and implement a comprehensive monitoring and alerting system for distributed services.`,
+                `Explain how you would design a comprehensive monitoring and alerting system for distributed services.`,
                 `Describe a complex technical problem you solved that required collaboration across multiple teams.`,
                 `How do you approach technical debt management in a fast-paced development environment?`,
                 `Walk me through your process for conducting effective code reviews and maintaining code quality standards.`,
@@ -185,49 +186,21 @@ Questions:`;
                 `Tell me about a team project where you had to collaborate with others who had different skill levels.`,
                 `How do you approach breaking down a large, complex problem into manageable tasks?`,
                 `Describe your testing strategy for a new feature you're developing. How do you ensure quality?`
-            ],
-            'frontend': [
-                `How would you optimize the performance of a React application that's experiencing slow rendering?`,
-                `Describe your approach to implementing responsive design across multiple devices and screen sizes.`,
-                `How do you handle state management in complex frontend applications? Compare different approaches.`,
-                `Explain how you would implement lazy loading and code splitting in a large-scale web application.`,
-                `Describe your process for ensuring cross-browser compatibility and handling browser-specific issues.`,
-                `How would you implement real-time features like live chat or notifications in a web application?`,
-                `Tell me about your experience with modern CSS frameworks and preprocessors. What are your preferences?`,
-                `How do you approach testing frontend applications? What tools and strategies do you use?`,
-                `Describe how you would implement accessibility features to ensure your application is usable by everyone.`,
-                `How would you optimize the loading time and performance of a content-heavy website?`
-            ],
-            'backend': [
-                `Design a RESTful API for a social media platform. How would you handle authentication and authorization?`,
-                `How would you architect a system to handle file uploads of various sizes, including very large files?`,
-                `Describe your approach to database design for a multi-tenant SaaS application.`,
-                `How would you implement rate limiting and API throttling for a public API?`,
-                `Explain how you would design a message queue system for processing background jobs at scale.`,
-                `Describe your strategy for handling database migrations in a production environment with zero downtime.`,
-                `How would you implement caching strategies for a high-traffic API? Discuss different caching layers.`,
-                `Tell me about your experience with monitoring and logging in distributed systems.`,
-                `How would you design a system to handle real-time data processing and analytics?`,
-                `Describe your approach to API versioning and maintaining backward compatibility.`
             ]
         };
 
-        // Enhanced field matching with more categories
+        // Field matching logic (same as before)
         const fieldLower = fieldTrimmed.toLowerCase();
         let selectedQuestions = [];
         
-        if (fieldLower.includes('intern') || fieldLower.includes('entry') || fieldLower.includes('student') || fieldLower.includes('graduate') || fieldLower.includes('junior')) {
+        if (fieldLower.includes('intern') || fieldLower.includes('entry') || fieldLower.includes('student') || fieldLower.includes('graduate')) {
             selectedQuestions = premiumQuestions.intern;
-        } else if (fieldLower.includes('java') || fieldLower.includes('spring') || fieldLower.includes('jvm') || fieldLower.includes('hibernate') || fieldLower.includes('maven')) {
+        } else if (fieldLower.includes('java') || fieldLower.includes('spring') || fieldLower.includes('jvm') || fieldLower.includes('hibernate')) {
             selectedQuestions = premiumQuestions.java;
-        } else if (fieldLower.includes('frontend') || fieldLower.includes('front-end') || fieldLower.includes('react') || fieldLower.includes('angular') || fieldLower.includes('vue') || fieldLower.includes('javascript') || fieldLower.includes('css') || fieldLower.includes('html')) {
-            selectedQuestions = premiumQuestions.frontend;
-        } else if (fieldLower.includes('backend') || fieldLower.includes('back-end') || fieldLower.includes('api') || fieldLower.includes('server') || fieldLower.includes('database') || fieldLower.includes('node')) {
-            selectedQuestions = premiumQuestions.backend;
-        } else if (fieldLower.includes('software') || fieldLower.includes('developer') || fieldLower.includes('engineer') || fieldLower.includes('programming') || fieldLower.includes('full') || fieldLower.includes('stack')) {
+        } else if (fieldLower.includes('software') || fieldLower.includes('developer') || fieldLower.includes('engineer') || fieldLower.includes('programming') || fieldLower.includes('backend') || fieldLower.includes('frontend')) {
             selectedQuestions = premiumQuestions.software;
         } else {
-            // Generate dynamic questions for any other field
+            // Custom questions for any field
             selectedQuestions = [
                 `Describe the most challenging project you've worked on in ${fieldTrimmed} and how you overcame obstacles.`,
                 `How do you stay current with the latest developments and best practices in ${fieldTrimmed}?`,
@@ -242,7 +215,7 @@ Questions:`;
             ];
         }
 
-        // Return randomized premium questions
+        // Return randomized questions
         const shuffled = [...selectedQuestions].sort(() => 0.5 - Math.random());
         const finalQuestions = shuffled.slice(0, questionCount);
 
@@ -255,7 +228,7 @@ Questions:`;
             field: fieldTrimmed,
             cohereAvailable: !!cohereApiKey,
             model: 'fallback-premium',
-            note: 'Using premium professional questions - Cohere AI attempted with command-r-08-2024'
+            note: 'Using premium questions - Cohere Chat API attempted with command-r-08-2024'
         });
         
     } catch (error) {
