@@ -1,12 +1,7 @@
 {
   "functions": {
-    "api/transcribe.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "build": {
-    "env": {
-      "PYTHON_VERSION": "3.9"
+    "api/analyze.js": {
+      "maxDuration": 30
     }
   }
 }
