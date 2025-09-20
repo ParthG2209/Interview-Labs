@@ -1,6 +1,0 @@
-openai-whisper==20240930
-torch==2.0.1
-torchaudio==2.0.2
-flask==3.0.0
-flask-cors==4.0.0
-python-multipart==0.0.6
