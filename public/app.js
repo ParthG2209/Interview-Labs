@@ -613,7 +613,7 @@ class InterviewApp {
         this.analyzeVideo();
     }
 
-    // FIXED analyzeVideo method - corrected API endpoint
+    // FIXED analyzeVideo method - now sends actual video file data
     async analyzeVideo() {
         if (!this.currentVideo) {
             this.showNotification('Please record or upload a video first', 'error');
@@ -628,25 +628,31 @@ class InterviewApp {
 
         const analyzeBtn = document.getElementById('analyzeVideoBtn');
         
-        // Show loading
+        // Show loading with video processing message
         if (analyzeBtn) {
-            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running Lab Analysis...';
+            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Video Content...';
             analyzeBtn.disabled = true;
         }
 
         try {
-            console.log('Calling /api/analyze with field:', this.currentField);
+            console.log('📹 Starting actual video analysis...');
+            console.log('Video file:', this.currentVideo);
+            console.log('Video size:', (this.currentVideo.size / (1024 * 1024)).toFixed(2), 'MB');
+            console.log('Video type:', this.currentVideo.type);
+            console.log('Field:', this.currentField);
             
-            // FIXED: Use /api/analyze instead of /api/analyze/video
+            // Create FormData to send actual video file
+            const formData = new FormData();
+            formData.append('video', this.currentVideo);
+            formData.append('field', this.currentField);
+            formData.append('hasVideo', 'true');
+            
+            console.log('📤 Uploading video for analysis...');
+            
+            // Send FormData (not JSON) to properly handle video file
             const response = await fetch('/api/analyze', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    field: this.currentField,
-                    hasVideo: true
-                })
+                body: formData  // No headers needed - browser sets multipart/form-data automatically
             });
 
             if (!response.ok) {
@@ -654,19 +660,25 @@ class InterviewApp {
             }
 
             const result = await response.json();
-            console.log('Analysis result:', result);
+            console.log('✅ Video analysis completed:', result);
             
             if (result.analysis) {
                 this.showResults(result.analysis);
                 this.saveSession(result.analysis);
-                this.showNotification('Lab analysis completed! Check your results below.', 'success');
+                
+                // Show appropriate success message based on actual video processing
+                if (result.actualVideoProcessed) {
+                    this.showNotification('🎥 Video content analyzed successfully!', 'success');
+                } else {
+                    this.showNotification('⚠️ Analysis completed - upload a video file for full video analysis', 'info');
+                }
             } else {
                 throw new Error('No analysis data received');
             }
 
         } catch (error) {
-            console.error('Analysis failed:', error);
-            this.showNotification(`Lab analysis failed: ${error.message}`, 'error');
+            console.error('❌ Video analysis failed:', error);
+            this.showNotification(`Video analysis failed: ${error.message}`, 'error');
         } finally {
             if (analyzeBtn) {
                 analyzeBtn.innerHTML = '<i class="fas fa-microscope"></i> Analyze Performance';
@@ -681,6 +693,34 @@ class InterviewApp {
         
         if (!resultsSection || !resultsContent) return;
         
+        // Enhanced results display with video metrics if available
+        let videoMetricsHTML = '';
+        if (analysis.videoMetrics) {
+            videoMetricsHTML = `
+                <div class="result-card">
+                    <h3><i class="fas fa-video"></i> Video Analysis Metrics</h3>
+                    <div class="video-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Speech Rate:</span>
+                            <span class="metric-value">${analysis.videoMetrics.speechRate} WPM</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Eye Contact:</span>
+                            <span class="metric-value">${analysis.videoMetrics.eyeContact}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Confidence Level:</span>
+                            <span class="metric-value">${analysis.videoMetrics.confidence}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Clarity Score:</span>
+                            <span class="metric-value">${analysis.videoMetrics.clarity}%</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
         resultsContent.innerHTML = `
             <div class="result-card">
                 <h3>Overall Lab Score</h3>
@@ -691,6 +731,8 @@ class InterviewApp {
                     <p>${this.getScoreDescription(analysis.rating)}</p>
                 </div>
             </div>
+            
+            ${videoMetricsHTML}
             
             <div class="result-card">
                 <h3><i class="fas fa-exclamation-triangle"></i> Areas for Experimentation</h3>
@@ -831,6 +873,32 @@ style.textContent = `
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
+    }
+    
+    .video-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .metric-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #9ca3af;
+    }
+    
+    .metric-value {
+        font-weight: bold;
+        color: #10b981;
     }
 `;
 document.head.appendChild(style);
