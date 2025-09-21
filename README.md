@@ -12,7 +12,7 @@ This project is a **video-only** Smart Interview Analyzer. It:
 - Python 3.8+
 - `ffmpeg` installed and in PATH
 - Whisper Python package: `pip install -U openai-whisper` (or `git+https://github.com/openai/whisper.git`)
-- (Optional) Cohere API key for richer analysis
+- (Optional) Cohere API key for richer analysis (needed for real ai analysis and question generation create a project.env file containing the api key)
 
 ## Quick start
 1. Unzip project and open terminal in project folder.
