@@ -37,4 +37,3 @@ This project is a **video-only** Smart Interview Analyzer. It:
 - The server calls that script; ensure your Python environment has Whisper installed.
 - If Cohere key is missing, the server falls back to a built-in heuristic analysis.
 
-# Interview-Labs-Render
